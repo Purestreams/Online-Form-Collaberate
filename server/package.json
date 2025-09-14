@@ -1,0 +1,21 @@
+{
+  "name": "online-form-collaborate-server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "NODE_ENV=production node src/index.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "nanoid": "^5.0.7",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.9.0"
+  }
+}
