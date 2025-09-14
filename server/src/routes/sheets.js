@@ -89,3 +89,20 @@ sheetsRouter.get('/:id/logs', (req, res) => {
   const logs = db.prepare('SELECT * FROM logs WHERE sheet_id = ? ORDER BY created_at DESC LIMIT 200').all(id);
   res.json({ logs });
 });
+
+// Delete a sheet (only creator can delete)
+sheetsRouter.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  const sheet = db.prepare('SELECT id, created_by FROM sheets WHERE id = ?').get(id);
+  if (!sheet) return res.status(404).json({ error: 'not found' });
+  if (sheet.created_by !== req.user.id) return res.status(403).json({ error: 'forbidden' });
+
+  const tx = db.transaction((sheetId) => {
+    db.prepare('DELETE FROM cells WHERE sheet_id = ?').run(sheetId);
+    db.prepare('DELETE FROM locks WHERE sheet_id = ?').run(sheetId);
+    db.prepare('DELETE FROM logs WHERE sheet_id = ?').run(sheetId);
+    db.prepare('DELETE FROM sheets WHERE id = ?').run(sheetId);
+  });
+  tx(id);
+  return res.json({ ok: true });
+});

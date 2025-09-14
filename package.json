@@ -1,5 +1,11 @@
 {
-  "dependencies": {
-    "better-sqlite3": "^12.2.0"
+  "name": "online-form-collaberate",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "concurrently -c auto -n client,server \"npm --prefix client run dev\" \"npm --prefix server run start\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }

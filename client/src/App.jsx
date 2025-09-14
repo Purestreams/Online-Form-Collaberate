@@ -1,4 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import {
+  Box, Button, Card, CardContent, CardHeader, Container, Grid as MuiGrid,
+  IconButton, List, ListItem, ListItemButton, ListItemText, Stack, TextField, Toolbar, Typography,
+  AppBar
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const API = '/api';
 
@@ -25,13 +33,19 @@ function Join({ onJoined }) {
     onJoined(data);
   };
   return (
-    <form onSubmit={submit} className="card">
-      <h2>加入协作</h2>
-      <input placeholder="昵称 (唯一)" value={nickname} onChange={e=>setNickname(e.target.value)} required />
-      <input placeholder="密码(可选)" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
-      <button type="submit">进入</button>
-      {error && <div className="error">{error}</div>}
-    </form>
+    <Container maxWidth="sm" sx={{ mt: 8 }}>
+      <Card component="form" onSubmit={submit}>
+        <CardHeader title="加入协作" />
+        <CardContent>
+          <Stack spacing={2}>
+            <TextField label="昵称 (唯一)" value={nickname} onChange={e=>setNickname(e.target.value)} required />
+            <TextField label="密码(可选)" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
+            {error && <Typography color="error">{error}</Typography>}
+            <Button type="submit" variant="contained">进入</Button>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Container>
   );
 }
 
@@ -58,28 +72,54 @@ function Sheets({ token, onOpen }) {
     if (data.id) { setName('我的表格'); load(); }
   };
 
+  const remove = async (id) => {
+    if (!confirm('确定删除该表格吗？此操作不可恢复')) return;
+    const res = await fetch(`${API}/sheets/${id}`, { method: 'DELETE', headers: { 'x-session-token': token } });
+    if (res.ok) load();
+  };
+
   return (
-    <div className="wrap">
-      <form onSubmit={create} className="card">
-        <h3>新建表格</h3>
-        <input value={name} onChange={e=>setName(e.target.value)} />
-        <div className="row">
-          <label>行</label><input type="number" value={rows} min={1} onChange={e=>setRows(e.target.value)} />
-          <label>列</label><input type="number" value={cols} min={1} onChange={e=>setCols(e.target.value)} />
-        </div>
-        <button type="submit">创建</button>
-      </form>
-      <div className="card">
-        <h3>选择表格</h3>
-        <ul>
-          {sheets.map(s => (
-            <li key={s.id}>
-              <button onClick={() => onOpen(s.id)}>{s.name} ({s.rows}x{s.cols})</button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <MuiGrid container spacing={2}>
+        <MuiGrid item xs={12} md={4}>
+          <Card component="form" onSubmit={create}>
+            <CardHeader title="新建表格" />
+            <CardContent>
+              <Stack spacing={2}>
+                <TextField label="名称" value={name} onChange={e=>setName(e.target.value)} />
+                <Stack direction="row" spacing={2}>
+                  <TextField label="行" type="number" value={rows} inputProps={{ min: 1 }} onChange={e=>setRows(e.target.value)} />
+                  <TextField label="列" type="number" value={cols} inputProps={{ min: 1 }} onChange={e=>setCols(e.target.value)} />
+                </Stack>
+                <Button type="submit" variant="contained">创建</Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </MuiGrid>
+        <MuiGrid item xs={12} md={8}>
+          <Card>
+            <CardHeader title="选择表格" />
+            <CardContent>
+              <List>
+                {sheets.map(s => (
+                  <ListItem key={s.id}
+                    secondaryAction={
+                      <IconButton edge="end" aria-label="delete" onClick={() => remove(s.id)} title="删除">
+                        <DeleteIcon />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemButton onClick={() => onOpen(s.id)}>
+                      <ListItemText primary={`${s.name} (${s.rows}x${s.cols})`} secondary={new Date(s.created_at).toLocaleString()} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </MuiGrid>
+      </MuiGrid>
+    </Container>
   );
 }
 
@@ -142,64 +182,86 @@ function Grid({ token, sheetId, onBack, me }) {
     wsRef.current?.send(JSON.stringify({ type: 'update_cell', r, c, value }));
   };
 
-  if (!sheet) return <div className="card">加载中...</div>;
+  if (!sheet) return (
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Card><CardContent>加载中...</CardContent></Card>
+    </Container>
+  );
 
   const rows = Array.from({ length: sheet.rows });
   const cols = Array.from({ length: sheet.cols });
 
   return (
-    <div>
-      <div className="toolbar">
-        <button onClick={onBack}>返回</button>
-        <span>{sheet.name} ({sheet.rows}x{sheet.cols})</span>
-        <button onClick={load}>刷新</button>
-        <button onClick={loadLogs}>查看日志</button>
-      </div>
-      <div className="grid">
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              {cols.map((_, ci) => <th key={ci}>{String.fromCharCode(65+ci)}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((_, ri) => (
-              <tr key={ri}>
-                <th>{ri+1}</th>
-                {cols.map((_, ci) => {
-                  const k = key(ri,ci);
-                  const lock = locks[k];
-                  const cell = cells[k] || { r: ri, c: ci, value: '' };
-      const disabled = !!(lock && lock.user_id && me && lock.user_id !== me.id);
-                  return (
-                    <td key={ci} className={lock? 'locked': ''} title={lock? `Editing by ${lock.user_id}`: ''}>
-                      <input
-                        value={cell.value || ''}
-                        onChange={e=>onChange(ri,ci,e.target.value)}
-                        onFocus={()=>onFocus(ri,ci)}
-                        onBlur={()=>onBlur(ri,ci)}
-        disabled={disabled}
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {log.length>0 && (
-        <div className="card logs">
-          <h3>操作日志</h3>
-          <ul>
-            {log.map((l)=> (
-              <li key={l.id}>[{new Date(l.created_at).toLocaleTimeString()}] {l.user_id} {l.action} ({l.r},{l.c}) {l.value? '-> '+l.value: ''}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    <Box>
+      <AppBar position="static" color="default" elevation={1}>
+        <Toolbar>
+          <Button onClick={onBack}>返回</Button>
+          <Typography sx={{ ml: 2, flexGrow: 1 }}>
+            {sheet.name} ({sheet.rows}x{sheet.cols})
+          </Typography>
+          <IconButton onClick={load} title="刷新" size="large"><RefreshIcon /></IconButton>
+          <Button onClick={loadLogs}>查看日志</Button>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="lg" sx={{ mt: 2 }}>
+        <Card>
+          <CardContent>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th></th>
+                    {cols.map((_, ci) => <th key={ci} style={{ border: '1px solid #ddd', padding: 4 }}>{String.fromCharCode(65+ci)}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((_, ri) => (
+                    <tr key={ri}>
+                      <th style={{ border: '1px solid #ddd', padding: 4 }}>{ri+1}</th>
+                      {cols.map((_, ci) => {
+                        const k = key(ri,ci);
+                        const lock = locks[k];
+                        const cell = cells[k] || { r: ri, c: ci, value: '' };
+                        const disabled = !!(lock && lock.user_id && me && lock.user_id !== me.id);
+                        return (
+                          <td key={ci} style={{ border: '1px solid #ddd', padding: 0, background: lock ? '#fff5f5' : 'white' }} title={lock? `Editing by ${lock.user_id}`: ''}>
+                            <TextField
+                              variant="standard"
+                              value={cell.value || ''}
+                              onChange={e=>onChange(ri,ci,e.target.value)}
+                              onFocus={()=>onFocus(ri,ci)}
+                              onBlur={()=>onBlur(ri,ci)}
+                              disabled={disabled}
+                              fullWidth
+                              InputProps={{ disableUnderline: true, sx: { px: 1, py: 0.5 } }}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {log.length>0 && (
+          <Card sx={{ mt: 2 }}>
+            <CardHeader title="操作日志" />
+            <CardContent>
+              <List>
+                {log.map((l)=> (
+                  <ListItem key={l.id}>
+                    <ListItemText primary={`[${new Date(l.created_at).toLocaleTimeString()}] ${l.user_id} ${l.action} (${l.r},${l.c}) ${l.value? '-> '+l.value: ''}`} />
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        )}
+      </Container>
+    </Box>
   );
 }
 
@@ -224,7 +286,16 @@ export default function App() {
     return () => { stop = true; };
   }, [token]);
 
-  if (!token) return <Join onJoined={onJoined} />;
-  if (!sheetId) return <Sheets token={token} onOpen={setSheetId} />;
-  return <Grid token={token} sheetId={sheetId} onBack={() => setSheetId('')} me={me} />;
+  const theme = createTheme({ palette: { mode: 'light' } });
+  return (
+    <ThemeProvider theme={theme}>
+      {!token ? (
+        <Join onJoined={onJoined} />
+      ) : !sheetId ? (
+        <Sheets token={token} onOpen={setSheetId} />
+      ) : (
+        <Grid token={token} sheetId={sheetId} onBack={() => setSheetId('')} me={me} />
+      )}
+    </ThemeProvider>
+  );
 }

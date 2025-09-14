@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+
+const { spawn } = require('node:child_process');
+const path = require('node:path');
+
+function color(code) { return (s) => `\u001b[${code}m${s}\u001b[0m`; }
+const green = color('32');
+const cyan = color('36');
+const gray = color('90');
+
+function run(name, cmd, args, cwd, colorFn) {
+  const p = spawn(cmd, args, { cwd, env: process.env, shell: true });
+  const prefix = colorFn(`[${name}]`);
+  const stamp = () => gray(new Date().toLocaleTimeString());
+  p.stdout.on('data', (data) => {
+    process.stdout.write(`${prefix} ${stamp()} ${data}`);
+  });
+  p.stderr.on('data', (data) => {
+    process.stderr.write(`${prefix} ${stamp()} ${data}`);
+  });
+  p.on('exit', (code) => {
+    console.log(`${prefix} exited with code ${code}`);
+  });
+  return p;
+}
+
+const root = process.cwd();
+const serverDir = path.join(root, 'server');
+const clientDir = path.join(root, 'client');
+
+const procs = [
+  run('server', 'npm', ['run', 'start'], serverDir, green),
+  run('client', 'npm', ['run', 'dev'], clientDir, cyan),
+];
+
+function shutdown() {
+  console.log(gray('\nShutting down...'));
+  for (const p of procs) {
+    if (!p.killed) p.kill('SIGINT');
+  }
+  process.exit(0);
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
