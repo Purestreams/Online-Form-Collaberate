@@ -138,6 +138,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-server/data/app.db-shm
-server/data/app.db-wal
 server/data/app.db
+server/.DS_Store
+.DS_Store
