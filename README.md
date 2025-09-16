@@ -1,6 +1,29 @@
 # Online Form Collaborate
 
-A minimal real-time collaborative grid using Node.js + SQLite + React. Supports nickname join (optional password), sheet creation, and real-time cell updates with locks via WebSocket.
+A minimal real-time collaborative grid using Node.js + SQLite + React. Supports nickname join (optional password), sheet creation, deletion, and real-time cell updates with locks via WebSocket.
+
+UI: React with Material UI (MUI) components.
+
+Note: If you intended Element UI, that library targets Vue. This project uses React with MUI. We can migrate to an Element-style React library on request.
+
+## Run the app
+
+From the repository root:
+
+1) Install dependencies once in both subfolders
+- server/: `npm install`
+- client/: `npm install`
+
+2) Start both server and client together
+- `node start`
+
+This starts:
+- Backend API on http://localhost:4000
+- Frontend on http://localhost:5173
+
+Optional (run separately):
+- server/: `npm start`
+- client/: `npm run dev`
 
 ## Project structure
 
@@ -8,10 +31,11 @@ A minimal real-time collaborative grid using Node.js + SQLite + React. Supports 
   - `src/index.js` app entry
   - `src/lib/db.js` SQLite init and schema
   - `src/routes/auth.js` nickname join + session auth
-  - `src/routes/sheets.js` sheet CRUD, cells, locks, logs
+  - `src/routes/sheets.js` sheet CRUD, cells, locks, logs, delete
   - `src/ws.js` WebSocket broadcast for updates/locks
-- `client/` React (Vite) frontend
-  - `src/App.jsx` Join -> Sheet list/create -> Grid editor
+- `client/` React (Vite) frontend with Material UI
+  - `src/App.jsx` Join -> Sheet list/create/delete -> Grid editor
+  - `src/styles.css` minor custom styles
   - `vite.config.js` dev proxy to backend
 
 ## Database design
@@ -38,6 +62,7 @@ Headers: `x-session-token: <token>` required for non-auth endpoints.
 - POST /api/sheets/:id/cells { r, c, value } -> { ok, r, c, value }
 - POST /api/sheets/:id/lock { r, c, lock:true|false } -> { ok }
 - GET  /api/sheets/:id/logs -> { logs }
+- DELETE /api/sheets/:id -> { ok } (creator only)
 
 ## Realtime
 
@@ -54,18 +79,6 @@ Events from server:
 - { type: 'locked', r, c, user_id, locked_at }
 - { type: 'unlocked', r, c }
 - { type: 'bulk_unlock', cells: [{r,c}] }
-
-## Run locally
-
-Terminal 1 (server):
-- Install deps: `npm install` in `server/`
-- Run: `npm run dev`
-
-Terminal 2 (client):
-- Install deps: `npm install` in `client/`
-- Run: `npm run dev`
-
-Open http://localhost:5173
 
 ## Notes
 - Passwords are stored in plain text for simplicity (demo only). For production: hash passwords and add auth hardening.
